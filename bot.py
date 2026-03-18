@@ -7,7 +7,7 @@ loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
 
 from pyrogram import Client, filters
-from pyrogram.errors import PeerIdInvalid
+from pyrogram.errors import FloodWait
 
 API_ID = int(os.environ.get("API_ID", 0))
 API_HASH = os.environ.get("API_HASH", "")
@@ -27,31 +27,32 @@ userbot = Client("my_userbot", api_id=API_ID, api_hash=API_HASH, session_string=
 
 @bot.on_message(filters.command("start"))
 async def start(client, message):
-    await message.reply_text("Bhejo link restricted video/file ka.")
+    await message.reply_text("Bhejo link restricted content ka (Public ya Private).")
 
-@bot.on_message(filters.text & filters.regex(r"https?://t\.me/c/(\d+)/(\d+)"))
-async def handle_restricted_link(client, message):
-    status_msg = await message.reply_text("Connecting to Channel...")
+@bot.on_message(filters.text & filters.regex(r"https?://t\.me/(?:c/(\d+)|([\w_]+))/(\d+)"))
+async def handle_links(client, message):
+    status_msg = await message.reply_text("🔎 Fetching content...")
     try:
         match = message.matches[0]
-        chat_id = int("-100" + match.group(1))
-        message_id = int(match.group(2))
-        
-        try:
-            chat = await userbot.get_chat(chat_id)
-        except PeerIdInvalid:
-            return await status_msg.edit_text("Error: Channel ID resolve nahi ho rahi. Kya tera account isme joined hai?")
-        except Exception:
-            pass
+        private_id = match.group(1)
+        username = match.group(2)
+        message_id = int(match.group(3))
 
-        user_msg = await userbot.get_messages(chat_id, message_id)
-        
-        media = user_msg.video or user_msg.document or user_msg.photo or user_msg.audio or user_msg.voice or user_msg.animation
-        
+        target_chat = int("-100" + private_id) if private_id else username
+
+        try:
+            user_msg = await userbot.get_messages(target_chat, message_id)
+        except Exception:
+            await userbot.get_chat(target_chat)
+            user_msg = await userbot.get_messages(target_chat, message_id)
+
+        media = (user_msg.video or user_msg.document or user_msg.photo or 
+                 user_msg.audio or user_msg.voice or user_msg.animation)
+
         if media:
-            await status_msg.edit_text("Downloading Restricted Media...")
+            await status_msg.edit_text("📥 Downloading...")
             file_path = await userbot.download_media(user_msg)
-            await status_msg.edit_text("Uploading to you...")
+            await status_msg.edit_text("📤 Uploading...")
             
             caption = user_msg.caption if user_msg.caption else ""
             if user_msg.video: await client.send_video(message.chat.id, file_path, caption=caption)
@@ -60,14 +61,16 @@ async def handle_restricted_link(client, message):
             elif user_msg.audio: await client.send_audio(message.chat.id, file_path, caption=caption)
             elif user_msg.voice: await client.send_voice(message.chat.id, file_path)
             elif user_msg.animation: await client.send_animation(message.chat.id, file_path)
-                
+            
             os.remove(file_path)
             await status_msg.delete()
         else:
-            await status_msg.edit_text("Is message mein koi media nahi mila.")
-            
+            await status_msg.edit_text("Koi media nahi mila is message mein.")
+
+    except FloodWait as e:
+        await status_msg.edit_text(f"Wait {e.value} seconds (Telegram Limit).")
     except Exception as e:
-        await status_msg.edit_text(f"Final Error: {str(e)}")
+        await status_msg.edit_text(f"Error: {str(e)}\n\nBhai check kar ki tera account is channel mein joined hai ya nahi.")
 
 async def main():
     await userbot.start()
