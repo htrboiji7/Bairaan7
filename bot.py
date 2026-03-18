@@ -15,8 +15,10 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 SESSION_STRING = os.environ.get("SESSION_STRING", "")
 
 app_web = Flask(__name__)
+
 @app_web.route('/')
-def home(): return "Bot is Alive!"
+def home():
+    return "Bot is Alive!"
 
 def run_web():
     port = int(os.environ.get("PORT", 8080))
@@ -27,11 +29,11 @@ userbot = Client("my_userbot", api_id=API_ID, api_hash=API_HASH, session_string=
 
 @bot.on_message(filters.command("start"))
 async def start(client, message):
-    await message.reply_text("Bhejo link restricted content ka (Public ya Private).")
+    await message.reply_text("Bhejo link restricted content ka.")
 
 @bot.on_message(filters.text & filters.regex(r"https?://t\.me/(?:c/(\d+)|([\w_]+))/(\d+)"))
 async def handle_links(client, message):
-    status_msg = await message.reply_text("🔎 Fetching content...")
+    status_msg = await message.reply_text("🔎 Processing...")
     try:
         match = message.matches[0]
         private_id = match.group(1)
@@ -46,8 +48,11 @@ async def handle_links(client, message):
             await userbot.get_chat(target_chat)
             user_msg = await userbot.get_messages(target_chat, message_id)
 
-        media = (user_msg.video or user_msg.document or user_msg.photo or 
-                 user_msg.audio or user_msg.voice or user_msg.animation)
+        media = None
+        for attr in ["video", "photo", "document", "audio", "voice", "animation", "video_note"]:
+            if getattr(user_msg, attr, None):
+                media = getattr(user_msg, attr)
+                break
 
         if media:
             await status_msg.edit_text("📥 Downloading...")
@@ -55,30 +60,39 @@ async def handle_links(client, message):
             await status_msg.edit_text("📤 Uploading...")
             
             caption = user_msg.caption if user_msg.caption else ""
-            if user_msg.video: await client.send_video(message.chat.id, file_path, caption=caption)
-            elif user_msg.photo: await client.send_photo(message.chat.id, file_path, caption=caption)
-            elif user_msg.document: await client.send_document(message.chat.id, file_path, caption=caption)
-            elif user_msg.audio: await client.send_audio(message.chat.id, file_path, caption=caption)
-            elif user_msg.voice: await client.send_voice(message.chat.id, file_path)
-            elif user_msg.animation: await client.send_animation(message.chat.id, file_path)
+            
+            if user_msg.video:
+                await client.send_video(message.chat.id, file_path, caption=caption)
+            elif user_msg.photo:
+                await client.send_photo(message.chat.id, file_path, caption=caption)
+            elif user_msg.document:
+                await client.send_document(message.chat.id, file_path, caption=caption)
+            elif user_msg.audio:
+                await client.send_audio(message.chat.id, file_path, caption=caption)
+            elif user_msg.voice:
+                await client.send_voice(message.chat.id, file_path)
+            elif user_msg.video_note:
+                await client.send_video_note(message.chat.id, file_path)
+            elif user_msg.animation:
+                await client.send_animation(message.chat.id, file_path)
             
             os.remove(file_path)
             await status_msg.delete()
         else:
-            await status_msg.edit_text("Koi media nahi mila is message mein.")
+            await status_msg.edit_text("❌ Media nahi mila.")
 
     except FloodWait as e:
-        await status_msg.edit_text(f"Wait {e.value} seconds (Telegram Limit).")
+        await status_msg.edit_text(f"Wait {e.value} seconds.")
     except Exception as e:
-        await status_msg.edit_text(f"Error: {str(e)}\n\nBhai check kar ki tera account is channel mein joined hai ya nahi.")
+        await status_msg.edit_text(f"Error: {str(e)}")
 
 async def main():
     await userbot.start()
     await bot.start()
-    print("🚀 BOT IS LIVE!")
+    print("BOT IS LIVE!")
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
     Thread(target=run_web).start()
     loop.run_until_complete(main())
-    
+            
