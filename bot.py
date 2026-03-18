@@ -17,7 +17,7 @@ app_web = Flask(__name__)
 
 @app_web.route('/')
 def home():
-    return "Bot is Alive!"
+    return "Bot is Running!"
 
 def run_web():
     port = int(os.environ.get("PORT", 8080))
@@ -32,33 +32,48 @@ async def start(client, message):
 
 @bot.on_message(filters.text & filters.regex(r"https?://t\.me/c/(\d+)/(\d+)"))
 async def handle_restricted_link(client, message):
-    status_msg = await message.reply_text("Downloading...")
+    status_msg = await message.reply_text("Processing...")
     try:
         match = message.matches[0]
         chat_id = int("-100" + match.group(1))
         message_id = int(match.group(2))
+        
         user_msg = await userbot.get_messages(chat_id, message_id)
-        if user_msg.video or user_msg.document:
+        
+        media = user_msg.video or user_msg.document or user_msg.photo or user_msg.audio or user_msg.voice or user_msg.animation
+        
+        if media:
+            await status_msg.edit_text("Downloading Restricted Media...")
             file_path = await userbot.download_media(user_msg)
-            await status_msg.edit_text("Uploading...")
+            await status_msg.edit_text("Uploading to you...")
+            
             if user_msg.video:
-                await client.send_video(message.chat.id, file_path)
-            else:
-                await client.send_document(message.chat.id, file_path)
+                await client.send_video(message.chat.id, file_path, caption=user_msg.caption)
+            elif user_msg.photo:
+                await client.send_photo(message.chat.id, file_path, caption=user_msg.caption)
+            elif user_msg.document:
+                await client.send_document(message.chat.id, file_path, caption=user_msg.caption)
+            elif user_msg.audio:
+                await client.send_audio(message.chat.id, file_path, caption=user_msg.caption)
+            elif user_msg.voice:
+                await client.send_voice(message.chat.id, file_path)
+            elif user_msg.animation:
+                await client.send_animation(message.chat.id, file_path)
+                
             os.remove(file_path)
             await status_msg.delete()
         else:
-            await status_msg.edit_text("Video ya document nahi mila.")
+            await status_msg.edit_text("Is message mein koi supported media nahi mila.")
+            
     except Exception as e:
         await status_msg.edit_text(f"Error: {str(e)}")
 
 async def main():
     await userbot.start()
     await bot.start()
-    print("BOT IS LIVE!")
+    print("🚀 BOT IS LIVE!")
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
     Thread(target=run_web).start()
     loop.run_until_complete(main())
-    
