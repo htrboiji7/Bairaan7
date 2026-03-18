@@ -1,4 +1,5 @@
 import os
+import asyncio
 from threading import Thread
 from flask import Flask
 from pyrogram import Client, filters
@@ -12,11 +13,14 @@ app_web = Flask(__name__)
 
 @app_web.route('/')
 def home():
-    return "Bot is running perfectly on Render!"
+    return "Bot is running!"
 
 def run_web():
     port = int(os.environ.get("PORT", 8080))
     app_web.run(host="0.0.0.0", port=port)
+
+# Naye Python version ke liye event loop fix
+loop = asyncio.get_event_loop()
 
 bot = Client("my_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 userbot = Client("my_userbot", api_id=API_ID, api_hash=API_HASH, session_string=SESSION_STRING)
@@ -32,18 +36,14 @@ def handle_restricted_link(client, message):
         match = message.matches[0]
         chat_id = int("-100" + match.group(1))
         message_id = int(match.group(2))
-        
         user_msg = userbot.get_messages(chat_id, message_id)
-        
         if user_msg.video or user_msg.document:
             file_path = userbot.download_media(user_msg)
             status_msg.edit_text("Uploading...")
-            
             if user_msg.video:
                 client.send_video(message.chat.id, file_path)
             else:
                 client.send_document(message.chat.id, file_path)
-                
             os.remove(file_path)
             status_msg.delete()
         else:
@@ -51,8 +51,13 @@ def handle_restricted_link(client, message):
     except Exception as e:
         status_msg.edit_text(str(e))
 
+async def main():
+    await userbot.start()
+    await bot.start()
+    print("Bot is Live!")
+    await asyncio.Event().wait()
+
 if __name__ == "__main__":
     Thread(target=run_web).start()
-    userbot.start()
-    bot.run()
-
+    loop.run_until_complete(main())
+    
