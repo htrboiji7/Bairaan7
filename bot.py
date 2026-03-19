@@ -23,7 +23,7 @@ userbot = Client("userbot", api_id=API_ID, api_hash=API_HASH, session_string=SES
 
 @bot.on_message(filters.command("start"))
 async def start(client, message):
-    await message.reply_text("Bhejo link restricted content ka. Sab nikalunga! 🔥")
+    await message.reply_text("Bhejo link restricted content ka.")
 
 @bot.on_message(filters.text & filters.regex(r"https?://t\.me/(?:c/(\d+)|([\w_]+))/(\d+)"))
 async def handle_links(client, message):
@@ -35,9 +35,16 @@ async def handle_links(client, message):
 
         try:
             u_msg = await userbot.get_messages(chat, msg_id)
-        except:
-            await userbot.get_chat(chat)
-            u_msg = await userbot.get_messages(chat, msg_id)
+        except Exception:
+            try:
+                await userbot.get_chat(chat)
+                u_msg = await userbot.get_messages(chat, msg_id)
+            except Exception:
+                await status.edit_text("🔄 Syncing Chats for Private Channel (Wait 5 sec)...")
+                async for dialog in userbot.get_dialogs(limit=50):
+                    if dialog.chat.id == chat:
+                        break
+                u_msg = await userbot.get_messages(chat, msg_id)
 
         media = None
         for a in ["video", "photo", "document", "audio", "voice", "animation", "video_note"]:
@@ -46,7 +53,7 @@ async def handle_links(client, message):
                 break
 
         if media:
-            await status.edit_text("📥 Downloading (Bypassing Restriction)...")
+            await status.edit_text("📥 Downloading...")
             file = await userbot.download_media(u_msg)
             await status.edit_text("📤 Uploading To You...")
             cap = u_msg.caption or ""
@@ -75,3 +82,4 @@ if __name__ == "__main__":
     Thread(target=run_web).start()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
+    
