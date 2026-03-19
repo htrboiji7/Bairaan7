@@ -36,15 +36,18 @@ async def handle_links(client, message):
         try:
             u_msg = await userbot.get_messages(chat, msg_id)
         except Exception:
-            try:
-                await userbot.get_chat(chat)
-                u_msg = await userbot.get_messages(chat, msg_id)
-            except Exception:
-                await status.edit_text("🔄 Syncing Chats for Private Channel (Wait 5 sec)...")
-                async for dialog in userbot.get_dialogs(limit=50):
-                    if dialog.chat.id == chat:
-                        break
-                u_msg = await userbot.get_messages(chat, msg_id)
+            await status.edit_text("🔄 Deep Syncing All Chats (Bada account hai toh 10-15 sec lagega)...")
+            found = False
+            # BINA KISI LIMIT KE SAARI CHATS SCAN KAREGA
+            async for dialog in userbot.get_dialogs():
+                if dialog.chat.id == chat:
+                    found = True
+                    break
+            
+            if not found:
+                return await status.edit_text("❌ Channel mila hi nahi! Confirm kar tera String Session wala account isme JOINED hai.")
+            
+            u_msg = await userbot.get_messages(chat, msg_id)
 
         media = None
         for a in ["video", "photo", "document", "audio", "voice", "animation", "video_note"]:
@@ -69,7 +72,7 @@ async def handle_links(client, message):
         else:
             await status.edit_text("❌ Is link mein koi media nahi mila.")
     except FloodWait as e:
-        await status.edit_text(f"Telegram Limit: {e.value}s wait.")
+        await status.edit_text(f"Limit: {e.value}s wait.")
     except Exception as e:
         await status.edit_text(f"Error: {str(e)}")
 
@@ -82,4 +85,3 @@ if __name__ == "__main__":
     Thread(target=run_web).start()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
-    
